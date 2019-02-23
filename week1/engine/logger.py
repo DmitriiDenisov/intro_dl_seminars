@@ -2,17 +2,17 @@ import os
 import tensorflow as tf
 import time
 from keras.callbacks import TensorBoard
-from telepyth import TelepythClient
+#from telepyth import TelepythClient
 from datetime import datetime
-tp = TelepythClient('14227435377386201718')
+#tp = TelepythClient('14227435377386201718')
 
 class TFLogger(TensorBoard):
-    def __init__(self, project_path, model_name, batch_size, STEP_SIZE_TRAIN, STEP_SIZE_VALID, perc_train, perc_val, TRAINABLE_LAYERS, barcode, log_every=1, VERBOSE=0, **kwargs):
+    def __init__(self, project_path, model_name, batch_size, STEP_SIZE_TRAIN, STEP_SIZE_VALID, TRAINABLE_LAYERS, barcode, log_every=1, VERBOSE=0, **kwargs):
         tf.summary.FileWriterCache.clear()
         self.project_path = project_path
         self.model_name = model_name[:-3]
         self.batch_size = batch_size
-        self.perc_train = perc_train
+        #self.perc_train = perc_train
         self.barcode = barcode
         #self.session = tf.InteractiveSession()
         self.log_dir = self._create_run_folder()
@@ -32,8 +32,8 @@ class TFLogger(TensorBoard):
             text = '*Start training:' + str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")) + '*' + '\n' + 'Model name: ' + str(model_name.replace('_', '\_')) + '\n'
             text += 'STEP\_SIZE\_TRAIN: ' + str(STEP_SIZE_TRAIN) + '\n' + 'STEP\_SIZE\_VAL: ' + str(STEP_SIZE_VALID) + '\n'
             text += 'Trainable layers: ' + str(TRAINABLE_LAYERS) + '\n'
-            text += 'percentage\_of\_train: ' + str(perc_train) + '\n' + 'percentage\_of\_val: ' + str(perc_val) + '\n'
-            tp.send_text(text)
+            #text += 'percentage\_of\_train: ' + str(perc_train) + '\n' + 'percentage\_of\_val: ' + str(perc_val) + '\n'
+            #tp.send_text(text)
 
     def on_batch_end(self, batch, logs=None):
         self.counter += 1
@@ -71,12 +71,12 @@ class TFLogger(TensorBoard):
             self.start = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
-        self.save_model_epoch_end()
+        #self.save_model_epoch_end()
         print('Time taken for validation:', time.time()-self.start)
         if self.VERBOSE:
             text = 'Epoch num: ' + str(self.epoch_num + 1) + '\n' + 'Time for val: ' + str(round(time.time()-self.start, 1)) + '\n'
             text += 'val\_loss: ' + str(round(logs['val_loss'], 2)) + '- val\_acc: ' + str(round(logs['val_acc'], 4)) + '\n'
-            tp.send_text(text)
+            #tp.send_text(text)
 
         self.epoch_num += 1
         self.epoch_end = True
@@ -97,7 +97,7 @@ class TFLogger(TensorBoard):
         if not os.path.exists(PATH_TO_LOGS):
             os.mkdir(PATH_TO_LOGS)
 
-        temp_path_run = os.path.join(PATH_TO_LOGS, str(self.perc_train)+'_'+self.model_name+'_'+self.barcode)
+        temp_path_run = os.path.join(PATH_TO_LOGS, '_' + self.model_name + '_' + self.barcode)
         temp_path = temp_path_run + '_1'
         i = 2
         while os.path.exists(temp_path):
@@ -106,7 +106,7 @@ class TFLogger(TensorBoard):
         return temp_path
 
     def save_model_epoch_end(self):
-        if not os.path.exists(os.path.join(os.path.dirname(self.log_dir), 'models')):
+        if not os.path.exists(os.path.join(self.project_path, 'models')):
             os.mkdir(os.path.join(os.path.dirname(self.log_dir), 'models'))
 
         name_of_folder = os.path.basename(self.log_dir)
