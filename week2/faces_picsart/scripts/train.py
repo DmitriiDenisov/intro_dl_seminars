@@ -1,7 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
 import os
 import sys
 import random
@@ -26,13 +23,14 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras import backend as K
 import tensorflow as tf
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img#,save_img
-
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Set some parameters
+load_model_bool = True
 im_width = 101
 im_height = 101
 im_chan = 1
-
 img_size_ori = (320, 240)
 img_size_target = (320, 240)
 
@@ -65,18 +63,18 @@ train_dir = '../data/train/'
 images = [np.array(load_img(join(train_dir, f), grayscale=False)) / 255
                 for f in listdir(train_dir) if isfile(join(train_dir, f))]
 masks_dir = '../data/train_mask/'
-#masks = [np.array(load_img(join(masks_dir, f), grayscale=True)) / 255
-#               for f in listdir(masks_dir) if isfile(join(masks_dir, f))]
+masks = [np.array(load_img(join(masks_dir, f), grayscale=True)) / 255
+               for f in listdir(masks_dir) if isfile(join(masks_dir, f))]
 
 # Create train/validation split stratified by salt coverage
 m = len(images)
 train_obs = np.random.choice(range(m), size=round(0.8 * m), replace=False)
 valid_obs = np.delete(range(m), train_obs)
 
-# train_images = np.array([images[i] for i in train_obs])
-# train_masks = np.array([masks[i].reshape(img_size_target + (1,)) for i in train_obs])
+train_images = np.array([images[i] for i in train_obs])
+train_masks = np.array([masks[i].reshape(img_size_target + (1,)) for i in train_obs])
 valid_images = np.array([images[i] for i in valid_obs])
-# valid_masks = np.array([masks[i].reshape(img_size_target + (1,)) for i in valid_obs])
+valid_masks = np.array([masks[i].reshape(img_size_target + (1,)) for i in valid_obs])
 
 
 def convolution_block(x, filters, size, strides=(1,1), padding='same', activation=True):
@@ -319,155 +317,50 @@ def my_dice_metric(label, pred):
     return metric_value
 
 
-TRAIN = False
-load_model_bool = True
+# Data augmentation
+x_train2 = np.append(train_images, [np.fliplr(x) for x in train_images], axis=0)
+y_train2 = np.append(train_masks, [np.fliplr(x) for x in train_masks], axis=0)
 
-if TRAIN:
-    # Data augmentation
-    x_train2 = np.append(train_images, [np.fliplr(x) for x in train_images], axis=0)
-    y_train2 = np.append(train_masks, [np.fliplr(x) for x in train_masks], axis=0)
+# x_train2 = train_images
+# y_train2 = train_masks
 
-    # x_train2 = train_images
-    # y_train2 = train_masks
+# sample = np.random.choice(range(x_train2.shape[0]), size=1000, replace=False)
+# x_train2 = np.array([x_train2[i, :, :, :] for i in sample])
+# y_train2 = np.array([y_train2[i, :, :, :] for i in sample])
 
-    # sample = np.random.choice(range(x_train2.shape[0]), size=1000, replace=False)
-    # x_train2 = np.array([x_train2[i, :, :, :] for i in sample])
-    # y_train2 = np.array([y_train2[i, :, :, :] for i in sample])
-
-    print(x_train2.shape)
-    print(valid_masks.shape)
+print(x_train2.shape)
+print(valid_masks.shape)
 
 
-    if load_model_bool:
-        model = load_model("resnet_weights.01--0.84.hdf5.model",custom_objects={'my_dice_metric': my_dice_metric})
-    else:
-        # model
-        input_layer = Input(img_size_target + (3,))
-        # input_layer2 = Input((img_size_target, img_size_target, 1))
-        output_layer = build_model(input_layer, 16, 0.5)
-
-        # del model
-        model = Model(input_layer, output_layer)
-        model.compile(loss='binary_crossentropy', optimizer="adam", metrics=[my_dice_metric])
-
-        model.summary()
-
-    # early_stopping = EarlyStopping(monitor='val_my_dice_metric', mode = 'max',patience=20, verbose=1)
-    model_checkpoint = ModelCheckpoint("resnet_weights.{epoch:02d}-{val_my_dice_metric:.2f}.hdf5.model", save_best_only=True, verbose=1)
-    # reduce_lr = ReduceLROnPlateau(monitor='val_my_dice_metric', mode='max', factor=0.2, patience=10, min_lr=0.00001, verbose=1)
-    #reduce_lr = ReduceLROnPlateau(factor=0.2, patience=5, min_lr=0.00001, verbose=1)
-
-    epochs = 50
-    batch_size = 32
-    verbose = 1
-
-    print('VERBOSE={}'.format(verbose))
-    print(x_train2.shape)
-    history = model.fit(x_train2, y_train2,
-                        validation_data=[[valid_images], [valid_masks]],
-                        epochs=epochs,
-                        batch_size=batch_size,
-                        callbacks=[model_checkpoint],
-                        verbose=verbose)
-    print('Fitted!')
+if load_model_bool:
+    model = load_model("../models/resnet_weights.01--0.84.hdf5.model",custom_objects={'my_dice_metric': my_dice_metric})
 else:
-    model = load_model("../models/resnet_weights.17--0.95.hdf5.model",custom_objects={'my_dice_metric': my_dice_metric})
-    def predict_result(model,x_test,img_size_target): # predict both orginal and reflect x
-        x_test_reflect = np.array([np.fliplr(x) for x in x_test])
-        x_test_reflect = x_test_reflect
-        print('Predicting...')
-        preds_test1 = model.predict(x_test, verbose=1)#.reshape(-1, img_size_target[0], img_size_target[1])
-        #preds_test2_refect = model.predict(x_test_reflect).reshape(-1, img_size_target[0], img_size_target[1])
-        #preds_test2 = np.array([ np.fliplr(x) for x in preds_test2_refect] )
-        #preds_avg = (preds_test1 + preds_test2)/2
-        #return preds_avg
-        return preds_test1
+    # model
+    input_layer = Input(img_size_target + (3,))
+    # input_layer2 = Input((img_size_target, img_size_target, 1))
+    output_layer = build_model(input_layer, 16, 0.5)
 
-    from PIL import Image
-    valid_images = valid_images[:1]
+    # del model
+    model = Model(input_layer, output_layer)
+    model.compile(loss='binary_crossentropy', optimizer="adam", metrics=[my_dice_metric])
 
-    # save initial image
-    initial_im = Image.fromarray((valid_images[0] * 255).astype(np.uint8))
-    initial_im.save("../output/your_initial_im.png")
+    model.summary()
 
-    pred_masks = predict_result(model, valid_images, img_size_target)
-    # как наложить маску на фото? сложить фото и 0.2 * маску
+# early_stopping = EarlyStopping(monitor='val_my_dice_metric', mode = 'max',patience=20, verbose=1)
+model_checkpoint = ModelCheckpoint("resnet_weights.{epoch:02d}-{val_my_dice_metric:.2f}.hdf5.model", save_best_only=True, verbose=1)
+# reduce_lr = ReduceLROnPlateau(monitor='val_my_dice_metric', mode='max', factor=0.2, patience=10, min_lr=0.00001, verbose=1)
+#reduce_lr = ReduceLROnPlateau(factor=0.2, patience=5, min_lr=0.00001, verbose=1)
 
-    pred_mask = (pred_masks[0]).reshape((320, 240))
-    pred_mask = np.round(pred_mask) * 255
-    pred_mask = pred_mask.astype(np.uint8)
-    # try_one_image = try_one_image.reshape((try_one_image.shape[0], try_one_image.shape[1], 1))
-    new_p = Image.fromarray(pred_mask)
-    new_p.save("../output/your_mask.png")
+epochs = 50
+batch_size = 32
+verbose = 1
 
-
-    # image_with_mask = valid_images[0] * 255
-    # # image_with_mask[:, :, 0] = image_with_mask[:, :, 0] + 0.2 * try_one_image
-    # # image_with_mask[:, :, 1] = image_with_mask[:, :, 1] + 0.2 * try_one_image
-    # image_with_mask[:, :, 2] = image_with_mask[:, :, 2] + 0.8 * pred_mask
-    #
-    # image_with_mask = image_with_mask.astype(np.uint8)
-    # #image_with_mask = valid_images[0] + 0.2 * try_one_image
-    # im_mask = Image.fromarray(image_with_mask)
-    # im_mask.save("image_plus_mask.png")
-
-    val_image = valid_images[0].copy()
-    val_image = np.round(val_image * 255, 0).astype(np.uint8)
-
-    # Возможно, это особенности работы функций opencv. В этом пакете кодировка BGR вместо RGB
-    val_image = np.concatenate([val_image[:, :, 2].reshape(val_image.shape[:2] + (1,)),
-                                val_image[:, :, 1].reshape(val_image.shape[:2] + (1,)),
-                                val_image[:, :, 0].reshape(val_image.shape[:2] + (1,))], axis=2)
-    pred_mask_red = np.zeros(pred_mask.shape + (3,), np.uint8)
-    pred_mask_red[:, :, 2] = pred_mask.copy()
-    blended_image = cv2.addWeighted(pred_mask_red, 1, val_image, 1, 0)
-    cv2.imwrite('../output/image_plus_mask.png', blended_image)
-
-    raise ValueError
-
-    preds_valid2 = np.array([downsample(x) for x in preds_valid])
-    y_valid2 = np.array([downsample(x) for x in valid_masks])
-
-    ## Scoring for last model
-    thresholds = np.linspace(0.3, 0.7, 31)
-    ious = np.array([dice_coef_batch(y_valid2, np.int32(preds_valid2 > threshold)) for threshold in tqdm_notebook(thresholds)])
-
-    threshold_best_index = np.argmax(ious)
-    iou_best = ious[threshold_best_index]
-    threshold_best = thresholds[threshold_best_index]
-
-    """
-    used for converting the decoded image to rle mask
-    Fast compared to previous one
-    """
-    def rle_encode(im):
-        '''
-        im: numpy array, 1 - mask, 0 - background
-        Returns run length as string formated
-        '''
-        pixels = im.flatten()
-        pixels = np.concatenate([[0], pixels, [0]])
-        runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
-        runs[1::2] -= runs[::2]
-        return ' '.join(str(x) for x in runs)
-
-
-    test_dir = '../data/test/'
-    test_images = np.array([np.array(load_img(join(test_dir, f), grayscale=False)) / 255
-                           for f in listdir(test_dir) if isfile(join(test_dir, f))])
-    test_file_names = [f[:f.find('.')] for f in listdir(test_dir) if isfile(join(test_dir, f))]
-    preds_test = predict_result(model,test_images,img_size_target)
-
-    import time
-    t1 = time.time()
-    pred_dict = {idx: rle_encode(np.round(preds_test[i] > threshold_best))
-                 for i, idx in enumerate(tqdm_notebook(test_file_names))}
-    t2 = time.time()
-
-    print('Used tume = {}'.format(t2-t1))
-    #print(f"Usedtime = {t2-t1} s")
-
-    sub = pd.DataFrame.from_dict(pred_dict,orient='index')
-    sub.index.names = ['image']
-    sub.columns = ['rle_mask']
-    sub.to_csv('submission_un2.csv')
+print('VERBOSE={}'.format(verbose))
+print(x_train2.shape)
+history = model.fit(x_train2, y_train2,
+                    validation_data=[[valid_images], [valid_masks]],
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    callbacks=[model_checkpoint],
+                    verbose=verbose)
+print('Fitted!')
