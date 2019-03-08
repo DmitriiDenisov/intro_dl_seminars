@@ -27,37 +27,10 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Set some parameters
-load_model_bool = True
-im_width = 101
-im_height = 101
-im_chan = 1
+load_model_bool = False
 img_size_ori = (320, 240)
 img_size_target = (320, 240)
 
-
-def upsample(img):  # not used
-    if img_size_ori == img_size_target:
-        return img
-    return resize(img, (img_size_target, img_size_target), mode='constant', preserve_range=True)
-    # res = np.zeros((img_size_target, img_size_target), dtype=img.dtype)
-    # res[:img_size_ori, :img_size_ori] = img
-    # return res
-
-
-def downsample(img):  # not used
-    if img_size_ori == img_size_target:
-        return img
-    return resize(img, (img_size_ori, img_size_ori), mode='constant', preserve_range=True)
-    # return img[:img_size_ori, :img_size_ori]
-
-
-# Loading of training/testing ids and depths
-# train_df = pd.read_csv("/storage/tgs_salt/train.csv", index_col="id", usecols=[0])
-# depths_df = pd.read_csv("/storage/tgs_salt/depths.csv", index_col="id")
-# train_df = train_df.join(depths_df)
-# test_df = depths_df[~depths_df.index.isin(train_df.index)]
-#
-# len(train_df)
 
 train_dir = '../data/train/'
 images = [np.array(load_img(join(train_dir, f), grayscale=False)) / 255
@@ -84,7 +57,6 @@ def convolution_block(x, filters, size, strides=(1,1), padding='same', activatio
         x = Activation('relu')(x)
     return x
 
-
 def residual_block(blockInput, num_filters=16):
     x = Activation('relu')(blockInput)
     x = BatchNormalization()(x)
@@ -92,7 +64,6 @@ def residual_block(blockInput, num_filters=16):
     x = convolution_block(x, num_filters, (3,3), activation=False)
     x = Add()([x, blockInput])
     return x
-
 
 # Build model
 def build_model(input_layer, start_neurons, DropoutRatio=0.5):
@@ -207,133 +178,23 @@ def build_model(input_layer, start_neurons, DropoutRatio=0.5):
     return output_layer
 
 
-# Score the model and do a threshold optimization by the best IoU.
-
-# src: https://www.kaggle.com/aglotero/another-iou-metric
-def iou_metric(y_true_in, y_pred_in, print_table=False):
-    labels = y_true_in
-    y_pred = y_pred_in
-
-    true_objects = 2
-    pred_objects = 2
-
-    # Jiaxin fin that if all zeros, then, the background is treated as object
-    temp1 = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=([0, 0.5, 1], [0, 0.5, 1]))
-    #     temp1 = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=(true_objects, pred_objects))
-    # print(temp1)
-    intersection = temp1[0]
-    # print("temp2 = ",temp1[1])
-    # print(intersection.shape)
-    # print(intersection)
-    # Compute areas (needed for finding the union between all objects)
-    # print(np.histogram(labels, bins = true_objects))
-    area_true = np.histogram(labels, bins=[0, 0.5, 1])[0]
-    # print("area_true = ",area_true)
-    area_pred = np.histogram(y_pred, bins=[0, 0.5, 1])[0]
-    area_true = np.expand_dims(area_true, -1)
-    area_pred = np.expand_dims(area_pred, 0)
-
-    # Compute union
-    union = area_true + area_pred - intersection
-
-    # Exclude background from the analysis
-    intersection = intersection[1:, 1:]
-    intersection[intersection == 0] = 1e-9
-
-    union = union[1:, 1:]
-    union[union == 0] = 1e-9
-
-    # Compute the intersection over union
-    iou = intersection / union
-
-    # Precision helper function
-    def precision_at(threshold, iou):
-        matches = iou > threshold
-        true_positives = np.sum(matches, axis=1) == 1  # Correct objects
-        false_positives = np.sum(matches, axis=0) == 0  # Missed objects
-        false_negatives = np.sum(matches, axis=1) == 0  # Extra objects
-        tp, fp, fn = np.sum(true_positives), np.sum(false_positives), np.sum(false_negatives)
-        return tp, fp, fn
-
-    # Loop over IoU thresholds
-    prec = []
-    if print_table:
-        print("Thresh\tTP\tFP\tFN\tPrec.")
-    for t in np.arange(0.5, 1.0, 0.05):
-        tp, fp, fn = precision_at(t, iou)
-        if (tp + fp + fn) > 0:
-            p = tp / (tp + fp + fn)
-        else:
-            p = 0
-        if print_table:
-            print("{:1.3f}\t{}\t{}\t{}\t{:1.3f}".format(t, tp, fp, fn, p))
-        prec.append(p)
-
-    if print_table:
-        print("AP\t-\t-\t-\t{:1.3f}".format(np.mean(prec)))
-    return np.mean(prec)
-
-
-def iou_metric_batch(y_true_in, y_pred_in):
-    y_pred_in = y_pred_in > 0.5  # added by sgx 20180728
-    batch_size = y_true_in.shape[0]
-    metric = []
-    for batch in range(batch_size):
-        value = iou_metric(y_true_in[batch], y_pred_in[batch])
-        metric.append(value)
-    # print("metric = ",metric)
-    return np.mean(metric)
-
-
-def my_iou_metric(label, pred):
-    metric_value = tf.py_func(iou_metric_batch, [label, pred], tf.float64)
-    return metric_value
-
-
 def dice_coef_K(y_true, y_pred, smooth=1):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
-    return -(2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-
-
-def dice_coef_np(y_true, y_pred, smooth=1):
-    intersection = (y_true.flatten() * y_pred.flatten()).sum()
-    return -(2. * intersection + smooth) / (y_true.sum() + y_pred.sum() + smooth)
-
-
-def dice_coef_batch(y_true_in, y_pred_in):
-    y_pred_in = (y_pred_in > 0.5).astype(np.float32)  # added by sgx 20180728
-    batch_size = y_true_in.shape[0]
-    metric = []
-    for batch in range(batch_size):
-        value = dice_coef_np(y_true_in[batch], y_pred_in[batch])
-        metric.append(value)
-    return np.mean(metric)
-
-
-def my_dice_metric(label, pred):
-    metric_value = tf.py_func(dice_coef_batch, [label, pred], tf.float64)
-    return metric_value
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
 
 
 # Data augmentation
 x_train2 = np.append(train_images, [np.fliplr(x) for x in train_images], axis=0)
 y_train2 = np.append(train_masks, [np.fliplr(x) for x in train_masks], axis=0)
 
-# x_train2 = train_images
-# y_train2 = train_masks
-
-# sample = np.random.choice(range(x_train2.shape[0]), size=1000, replace=False)
-# x_train2 = np.array([x_train2[i, :, :, :] for i in sample])
-# y_train2 = np.array([y_train2[i, :, :, :] for i in sample])
-
 print(x_train2.shape)
 print(valid_masks.shape)
 
 
 if load_model_bool:
-    model = load_model("../models/resnet_weights.01--0.84.hdf5.model",custom_objects={'my_dice_metric': my_dice_metric})
+    model = load_model("../models/resnet_weights.01--0.84.hdf5.model",custom_objects={'my_dice_metric': dice_coef_K})
 else:
     # model
     input_layer = Input(img_size_target + (3,))
@@ -342,8 +203,7 @@ else:
 
     # del model
     model = Model(input_layer, output_layer)
-    model.compile(loss='binary_crossentropy', optimizer="adam", metrics=[my_dice_metric])
-
+    model.compile(loss='binary_crossentropy', optimizer="adam", metrics=[dice_coef_K])
     model.summary()
 
 # early_stopping = EarlyStopping(monitor='val_my_dice_metric', mode = 'max',patience=20, verbose=1)
