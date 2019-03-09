@@ -4,11 +4,20 @@ from os import listdir
 from os.path import isfile, join
 import numpy as np
 import cv2
+from keras import backend as K
 from keras.models import Model, load_model
 import tensorflow as tf
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img#,save_img
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+
+def dice_coef_K(y_true, y_pred, smooth=1):
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+
 
 def dice_coef_np(y_true, y_pred, smooth=1):
     intersection = (y_true.flatten() * y_pred.flatten()).sum()
@@ -31,7 +40,7 @@ def predict_result(model ,x_test ,img_size_target): # predict both orginal and r
     x_test_reflect = np.array([np.fliplr(x) for x in x_test])
     x_test_reflect = x_test_reflect
     print('Predicting...')
-    preds_test1 = model.predict(x_test, verbose=1  )  # .reshape(-1, img_size_target[0], img_size_target[1])
+    preds_test1 = model.predict(x_test, verbose=1)  # .reshape(-1, img_size_target[0], img_size_target[1])
     # preds_test2_refect = model.predict(x_test_reflect).reshape(-1, img_size_target[0], img_size_target[1])
     # preds_test2 = np.array([ np.fliplr(x) for x in preds_test2_refect] )
     # preds_avg = (preds_test1 + preds_test2)/2
@@ -49,7 +58,8 @@ test_dir = '../data/new_test/'
 test_images = np.array([np.array(load_img(join(test_dir, f), grayscale=False)) / 255
                         for f in listdir(test_dir) if isfile(join(test_dir, f))])
 test_file_names = [f[:f.find('.')] for f in listdir(test_dir) if isfile(join(test_dir, f))]
-model = load_model("../models/resnet_weights.17--0.95.hdf5.model" ,custom_objects={'my_dice_metric': my_dice_metric})
+model = load_model("../models/first_launch/resnet_weights.17--0.95.hdf5.model", custom_objects={'dice_coef_K': dice_coef_K,
+                                                                                                'my_dice_metric': my_dice_metric})
 valid_images = test_images[:10]
 
 pred_masks = predict_result(model, valid_images, img_size_target)
