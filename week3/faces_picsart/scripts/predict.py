@@ -58,8 +58,8 @@ test_dir = '../data/new_test/'
 test_images = np.array([np.array(load_img(join(test_dir, f), grayscale=False)) / 255
                         for f in listdir(test_dir) if isfile(join(test_dir, f))])
 test_file_names = [f[:f.find('.')] for f in listdir(test_dir) if isfile(join(test_dir, f))]
-model = load_model("../models/first_launch/resnet_weights.17--0.95.hdf5.model", custom_objects={'dice_coef_K': dice_coef_K,
-                                                                                                'my_dice_metric': my_dice_metric})
+model = load_model("../models/unet_weights.11-val_loss0.12--0.95.hdf5.model",
+                   custom_objects={'dice_coef_K': dice_coef_K, 'my_dice_metric': my_dice_metric})
 valid_images = test_images[:10]
 
 pred_masks = predict_result(model, valid_images, img_size_target)

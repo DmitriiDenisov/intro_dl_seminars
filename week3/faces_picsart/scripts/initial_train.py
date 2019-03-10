@@ -342,6 +342,7 @@ def unet(pretrained_weights=None, input_size=(256, 256, 1)):
 
     return model
 
+
 def unet2(inputs):
     # inputs = Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
     inputs = Input(inputs)
@@ -402,6 +403,69 @@ def unet2(inputs):
     return model
 
 
+def conv2d_block(input_tensor, n_filters, kernel_size=3, batchnorm=True):
+    # first layer
+    x = Conv2D(filters=n_filters, kernel_size=(kernel_size, kernel_size), kernel_initializer="he_normal",
+               padding="same")(input_tensor)
+    if batchnorm:
+        x = BatchNormalization()(x)
+    x = Activation("relu")(x)
+    # second layer
+    x = Conv2D(filters=n_filters, kernel_size=(kernel_size, kernel_size), kernel_initializer="he_normal",
+               padding="same")(x)
+    if batchnorm:
+        x = BatchNormalization()(x)
+    x = Activation("relu")(x)
+    return x
+
+
+def get_unet(input_img, n_filters=16, dropout=0.5, batchnorm=True):
+    # contracting path
+    c1 = conv2d_block(input_img, n_filters=n_filters * 1, kernel_size=3, batchnorm=batchnorm)
+    p1 = MaxPooling2D((2, 2))(c1)
+    p1 = Dropout(dropout * 0.5)(p1)
+
+    c2 = conv2d_block(p1, n_filters=n_filters * 2, kernel_size=3, batchnorm=batchnorm)
+    p2 = MaxPooling2D((2, 2))(c2)
+    p2 = Dropout(dropout)(p2)
+
+    c3 = conv2d_block(p2, n_filters=n_filters * 4, kernel_size=3, batchnorm=batchnorm)
+    p3 = MaxPooling2D((2, 2))(c3)
+    p3 = Dropout(dropout)(p3)
+
+    c4 = conv2d_block(p3, n_filters=n_filters * 8, kernel_size=3, batchnorm=batchnorm)
+    p4 = MaxPooling2D(pool_size=(2, 2))(c4)
+    p4 = Dropout(dropout)(p4)
+
+    c5 = conv2d_block(p4, n_filters=n_filters * 16, kernel_size=3, batchnorm=batchnorm)
+
+    # expansive path
+    u6 = Conv2DTranspose(n_filters * 8, (3, 3), strides=(2, 2), padding='same')(c5)
+    u6 = concatenate([u6, c4])
+    u6 = Dropout(dropout)(u6)
+    c6 = conv2d_block(u6, n_filters=n_filters * 8, kernel_size=3, batchnorm=batchnorm)
+
+    u7 = Conv2DTranspose(n_filters * 4, (3, 3), strides=(2, 2), padding='same')(c6)
+    u7 = concatenate([u7, c3])
+    u7 = Dropout(dropout)(u7)
+    c7 = conv2d_block(u7, n_filters=n_filters * 4, kernel_size=3, batchnorm=batchnorm)
+
+    u8 = Conv2DTranspose(n_filters * 2, (3, 3), strides=(2, 2), padding='same')(c7)
+    u8 = concatenate([u8, c2])
+    u8 = Dropout(dropout)(u8)
+    c8 = conv2d_block(u8, n_filters=n_filters * 2, kernel_size=3, batchnorm=batchnorm)
+
+    u9 = Conv2DTranspose(n_filters * 1, (3, 3), strides=(2, 2), padding='same')(c8)
+    u9 = concatenate([u9, c1], axis=3)
+    u9 = Dropout(dropout)(u9)
+    c9 = conv2d_block(u9, n_filters=n_filters * 1, kernel_size=3, batchnorm=batchnorm)
+
+    outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
+    model = Model(inputs=[input_img], outputs=[outputs])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[dice_coef_K])
+
+    return model
+
 # Data augmentation
 x_train2 = np.append(train_images, [np.fliplr(x) for x in train_images], axis=0)
 y_train2 = np.append(train_masks, [np.fliplr(x) for x in train_masks], axis=0)
@@ -423,14 +487,26 @@ print(valid_masks.shape)
 #model.compile(loss='binary_crossentropy', optimizer="adam", metrics=[my_dice_metric])
 #model.summary()
 
-model = unet(input_size=img_size_target + (3,))
+#model = unet(input_size=img_size_target + (3,))
 # model = unet2(inputs=img_size_target + (3, ))
-model.summary()
+# model.summary()
+
+
+load = True
+
+if load:
+    model = load_model('../models/unet_weights.01-val_loss0.47--0.86.hdf5.model', custom_objects={'dice_coef_K': dice_coef_K})
+    model.summary()
+else:
+    input_img = Input(img_size_target + (3,), name='img')
+    model = get_unet(input_img, n_filters=16, dropout=0.05, batchnorm=True)
+    model.summary()
+
 
 # early_stopping = EarlyStopping(monitor='val_my_dice_metric', mode = 'max',patience=20, verbose=1)
 model_checkpoint = ModelCheckpoint("../models/unet_weights.{epoch:02d}-val_loss{val_loss:.2f}-{val_dice_coef_K:.2f}.hdf5.model",
-                                   monitor='val_loss', mode='max', save_best_only=True, verbose=1)
-reduce_lr = ReduceLROnPlateau(monitor='val_my_dice_metric', mode='max', factor=0.2, patience=3, min_lr=0.00001, verbose=1)
+                                   monitor='val_dice_coef_K', mode='min', save_best_only=True, verbose=1)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', mode='min', factor=0.2, patience=3, min_lr=0.00001, verbose=1)
 #reduce_lr = ReduceLROnPlateau(factor=0.2, patience=5, min_lr=0.00001, verbose=1)
 
 epochs = 50
