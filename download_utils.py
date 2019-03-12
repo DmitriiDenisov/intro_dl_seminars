@@ -6,7 +6,7 @@ import requests
 import time
 from functools import wraps
 import traceback
-import tqdm_utils
+from tqdm import tqdm
 
 
 # https://www.saltycrane.com/blog/2009/11/trying-out-retry-decorator-python/
@@ -38,7 +38,7 @@ def retry(ExceptionToCheck, tries=4, delay=3, backoff=2):
 def download_file(url, file_path):
     r = requests.get(url, stream=True)
     total_size = int(r.headers.get('content-length'))
-    bar = tqdm_utils.tqdm_notebook_failsafe(total=total_size, unit='B', unit_scale=True)
+    bar = tqdm(total=total_size, unit='B', unit_scale=True)
     bar.set_description(os.path.split(file_path)[-1])
     incomplete_download = False
     try:
