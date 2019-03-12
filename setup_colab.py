@@ -28,4 +28,7 @@ def setup_week2():
 
 def setup_week3():
     setup_common()
-
+    import download_utils
+    download_utils.download_week_3_resources("week3")
+    os.system("unzip week3/week3.zip")
+    os.system("rm -r week3")

@@ -71,23 +71,6 @@ def sequential_downloader(version, fns, target_dir):
         download_from_github(version, fn, target_dir)
 
 
-def link_all_files_from_dir(src_dir, dst_dir):
-    os.makedirs(dst_dir, exist_ok=True)
-    if not os.path.exists(src_dir):
-        # Coursera "readonly/readonly" bug workaround
-        src_dir = src_dir.replace("readonly", "readonly/readonly")
-    for fn in os.listdir(src_dir):
-        src_file = os.path.join(src_dir, fn)
-        dst_file = os.path.join(dst_dir, fn)
-        if os.name == "nt":
-            shutil.copyfile(src_file, dst_file)
-        else:
-            if os.path.islink(dst_file):
-                os.remove(dst_file)
-            if not os.path.exists(dst_file):
-                os.symlink(os.path.abspath(src_file), dst_file)
-
-
 def download_week_2_resources(save_path):
     # Originals:
     # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz
@@ -100,19 +83,15 @@ def download_week_2_resources(save_path):
         save_path
     )
 
+def download_week_3_resources(save_path):
+    # Originals:
+    # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz
+    # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/imagelabels.mat
+    sequential_downloader(
+        "week3",
+        [
+            "week3.zip"
+        ],
+        save_path
+    )
 
-def link_all_keras_resources():
-    link_all_files_from_dir("../readonly/keras/datasets/", os.path.expanduser("~/.keras/datasets"))
-    link_all_files_from_dir("../readonly/keras/models/", os.path.expanduser("~/.keras/models"))
-
-
-def link_week_3_resources():
-    link_all_files_from_dir("../readonly/week3/", ".")
-
-
-def link_week_4_resources():
-    link_all_files_from_dir("../readonly/week4/", ".")
-
-
-def link_week_6_resources():
-    link_all_files_from_dir("../readonly/week6/", ".")
