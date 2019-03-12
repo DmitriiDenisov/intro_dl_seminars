@@ -76,9 +76,9 @@ def download_week_2_resources(save_path):
     # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz
     # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/imagelabels.mat
     sequential_downloader(
-        "week2",
+        "data_week2",
         [
-            "data_cards_recognition.zip"
+            "data.zip"
         ],
         save_path
     )
@@ -88,9 +88,9 @@ def download_week_3_resources(save_path):
     # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz
     # http://www.robots.ox.ac.uk/~vgg/data/flowers/102/imagelabels.mat
     sequential_downloader(
-        "week3",
+        "data_week3",
         [
-            "week3.zip"
+            "data.zip"
         ],
         save_path
     )
