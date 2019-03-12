@@ -13,12 +13,9 @@ def setup_common():
     # if bool(int(os.environ.get("EXPERIMENTAL_TQDM", "0"))):
     #    os.system("pip install --force https://github.com/DmitriiDenisov/intro_dl_seminars/releases/download/ColabTqdm/tqdm-colab.zip")
     # else:
+    os.system("rm -r sample_data")
     os.system("pip install tqdm")
-    # os.system("pip install --upgrade Keras==2.0.6")  # latest version breaks callbacks
-    # download_github_code("keras_utils.py")
-    # download_github_code("grading.py")
     download_github_code("download_utils.py")
-    # download_github_code("tqdm_utils.py")
 
 
 def setup_week2():
@@ -31,8 +28,4 @@ def setup_week2():
 
 def setup_week3():
     setup_common()
-    # download_github_code("week2/v2/grading_utils.py")
-    # download_github_code("week2/v2/matplotlib_utils.py")
-    # download_github_code("week2/v2/preprocessed_mnist.py")
-
 
