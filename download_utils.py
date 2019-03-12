@@ -64,6 +64,8 @@ def download_from_github(version, fn, target_dir):
 
 
 def sequential_downloader(version, fns, target_dir):
+    print(target_dir)
+    print(os.getcwd())
     os.makedirs(target_dir, exist_ok=True)
     for fn in fns:
         download_from_github(version, fn, target_dir)
