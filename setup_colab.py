@@ -25,6 +25,8 @@ def setup_week2():
     setup_common()
     import download_utils
     download_utils.download_week_2_resources("week2")
+    os.system("unzip week2/data_cards_recognition.zip")
+    os.system("rm -r week2")
 
 
 def setup_week3():
