@@ -22,7 +22,7 @@ def setup_common():
 
 
 def setup_week2():
-    # setup_common()
+    setup_common()
     import download_utils
     download_utils.download_week_2_resources("week2")
 
