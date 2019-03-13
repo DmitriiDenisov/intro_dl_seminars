@@ -15,6 +15,8 @@ def setup_common():
     # else:
     os.system("rm -r sample_data")
     os.system("pip install tqdm")
+    os.system("pip install keras-tqdm")
+    #os.system("pip install tensorboardcolab")
     download_github_code("download_utils.py")
 
 
