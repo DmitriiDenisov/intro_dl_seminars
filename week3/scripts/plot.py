@@ -8,7 +8,7 @@ import numpy as np
 
 SIZE_OF_RANDOM_CHOOSE = 7
 # Считыавем тестовые изображения:
-test_dir = 'new'
+test_dir = '../output/unet'
 test_images = np.array([np.array(load_img(join(test_dir, f), grayscale=False)) / 255
                         for f in listdir(test_dir) if isfile(join(test_dir, f))])
 test_file_names = [f[:f.find('.')] for f in listdir(test_dir) if isfile(join(test_dir, f))]
