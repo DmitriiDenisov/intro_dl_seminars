@@ -1,5 +1,7 @@
-# intro_dl_seminars
-Инфо по курсу: http://wiki.cs.hse.ru/Intro_to_DL_Blended
+# Intoduction to DL seminars in HSE in 2019
+Course info: http://wiki.cs.hse.ru/Intro_to_DL_Blended
+
+Course Program: https://www.hse.ru/data/2018/06/05/1150113338/program-2129241367-JndYcQjSAq.pdf
 
 Grading:
 
