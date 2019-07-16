@@ -14,5 +14,5 @@ Cumulative grade = 80% online course + 20% additional project
 
 Final grade = 75% cumulative grade + 25% final exam
 
-
+-----------------------
 For all questions please write in Telegram messenger: @DmitriiDenisov
